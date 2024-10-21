@@ -18,21 +18,27 @@ class Todo:
                             username TEXT NOT NULL UNIQUE,
                             password TEXT NOT NULL
                           );''')
+
         self.c.execute('''CREATE TABLE IF NOT EXISTS notes (
                             id INTEGER PRIMARY KEY,
                             user_id INTEGER NOT NULL,
                             content TEXT NOT NULL,
+                            is_deleted INTEGER DEFAULT 0,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY(user_id) REFERENCES users(id)
                           );''')
+
         self.c.execute('''CREATE TABLE IF NOT EXISTS posts (
-                                id INTEGER PRIMARY KEY,
-                                user_id INTEGER NOT NULL,
-                                title TEXT NOT NULL,
-                                content TEXT NOT NULL,
-                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                visible INTEGER DEFAULT 1,
-                                FOREIGN KEY(user_id) REFERENCES users(id)
-                              );''')
+                              id INTEGER PRIMARY KEY,
+                              user_id INTEGER NOT NULL,
+                              title TEXT NOT NULL,
+                              content TEXT NOT NULL,
+                              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                              is_deleted INTEGER DEFAULT 0,
+                              visible INTEGER DEFAULT 1,
+                              FOREIGN KEY(user_id) REFERENCES users(id)
+                            );''')
+
         self.conn.commit()
 
     def register_user(self, username, password):
@@ -67,7 +73,7 @@ class Todo:
         self.c.execute('''SELECT posts.id, users.username, posts.title, posts.content, posts.created_at
                               FROM posts
                               JOIN users ON posts.user_id = users.id
-                              WHERE posts.is_deleted = 0
+                              WHERE posts.is_deleted = 0 AND posts.visible = 1
                               ORDER BY posts.created_at DESC''')
         return self.c.fetchall()
 
