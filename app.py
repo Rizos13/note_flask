@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
-
+import os
 app = Flask(__name__)
-app.secret_key = 'ef1b7f45ed011a3fbe6790873b6bed1283be3c42d5ddb7633acd9cff8d287031'
+app.secret_key = os.urandom(24)
 
 
 class Todo:
@@ -14,10 +14,11 @@ class Todo:
 
     def create_tables(self):
         self.c.execute('''CREATE TABLE IF NOT EXISTS users (
-                            id INTEGER PRIMARY KEY,
-                            username TEXT NOT NULL UNIQUE,
-                            password TEXT NOT NULL
-                          );''')
+                                        id INTEGER PRIMARY KEY,
+                                        username TEXT NOT NULL UNIQUE,
+                                        password TEXT NOT NULL,
+                                        role TEXT DEFAULT 'user'
+                                      );''')
 
         self.c.execute('''CREATE TABLE IF NOT EXISTS notes (
                             id INTEGER PRIMARY KEY,
@@ -51,10 +52,10 @@ class Todo:
             return False
 
     def login_user(self, username, password):
-        self.c.execute('SELECT id, password FROM users WHERE username=?', (username,))
+        self.c.execute('SELECT id, password, role FROM users WHERE username=?', (username,))
         user = self.c.fetchone()
         if user and check_password_hash(user[1], password):
-            return user[0]
+            return user
         return None
 
     def add_note(self, user_id, content):
@@ -117,10 +118,10 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user_id = db.login_user(username, password)
-        if user_id is not None:
-            session['user_id'] = user_id
-            session['is_admin'] = (username == 'admin')
+        user = db.login_user(username, password)
+        if user is not None:
+            session['user_id'] = user[0]
+            session['role'] = user[2]
             return redirect(url_for('dashboard'))
         else:
             return "Invalid credentials. Please try again."
@@ -133,12 +134,13 @@ def dashboard():
         return redirect(url_for('login'))
 
     user_id = session['user_id']
+    user_role = session.get('role', 'user')
     if request.method == 'POST':
         content = request.form['content']
         db.add_note(user_id, content)
 
     notes = db.get_user_notes(user_id)
-    return render_template('dashboard.html', notes=notes)
+    return render_template('dashboard.html', notes=notes, user_role=user_role)
 
 
 @app.route('/posts', methods=['GET', 'POST'])
@@ -158,7 +160,7 @@ def posts():
 
 @app.route('/admin/posts', methods=['GET', 'POST'])
 def admin_posts():
-    if 'user_id' not in session or not session.get('is_admin'):
+    if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
 
     if request.method == 'POST':
@@ -179,6 +181,7 @@ def delete_post(post_id):
         return "Unauthorized", 403
 
     user_id = session['user_id']
+    user_role = session.get('role')
 
     db.c.execute('SELECT user_id FROM posts WHERE id=?', (post_id,))
     post_owner = db.c.fetchone()
@@ -186,7 +189,7 @@ def delete_post(post_id):
     if post_owner is None:
         return "Post not found", 404
 
-    if post_owner[0] != user_id and not session.get('is_admin'):
+    if post_owner[0] != user_id and user_role != 'admin':
         return "Unauthorized", 403
 
     db.delete_post(post_id)
