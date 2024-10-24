@@ -1,11 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
-import base64
+import os
 app = Flask(__name__)
-rb = app.secret_key
-bs64_encode = base64.b64encode(rb).decode("utf-8")
-print(bs64_encode)
+app.secret_key = os.urandom(24)
+
 
 class Todo:
     def __init__(self):
