@@ -8,7 +8,7 @@ app.secret_key = os.urandom(24)
 
 class Todo:
     def __init__(self):
-        self.conn = sqlite3.connect('todo.db', check_same_thread=False)
+        self.conn = sqlite3.connect('note_flask/todo.db', check_same_thread=False)
         self.c = self.conn.cursor()
         self.create_tables()
 
